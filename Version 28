@@ -1,0 +1,722 @@
+#include <Servo.h>
+
+Servo servoFrontL; // Front left leg servo
+Servo servoFrontR; // Front right leg servo
+Servo servoBackL; // Back left leg servo
+Servo servoBackR; // Back right leg servo
+Servo servoKneeFL; // Front left knee servo
+Servo servoKneeFR; // Front right knee servo
+Servo servoKneeBL; // Back left knee servo
+Servo servoKneeBR; // Back right knee servo
+
+// Angle for each leg or knee in the initial position
+int initPosFrontL = 135; 
+int initPosFrontR = 55;
+int initPosBackL = 28;
+int initPosBackR = 115;
+int initPosKneeFL = 50;
+int initPosKneeFR = 120;
+int initPosKneeBL = 78;
+int initPosKneeBR = 100;
+
+// Angle for long steps code, initial position
+int LongPosFrontL = 15; 
+int LongPosFrontR = 165;
+int LongPosBackL = 125;
+int LongPosBackR = 30;
+int LongPosKneeFL = 145;
+int LongPosKneeFR = 15;
+int LongPosKneeBL = 0;
+int LongPosKneeBR = 185;
+
+// Angle for alternate climb code, initial position
+int climbPosFrontL = 52; 
+int climbPosFrontR = 125;
+int climbPosBackL = 3;
+int climbPosBackR = 140;
+int climbPosKneeFL = 151;
+int climbPosKneeFR = 15;
+int climbPosKneeBL = 100;
+int climbPosKneeBR = 80;
+
+
+
+// delays
+int d6 = 60;
+int d7 = 70;
+int d1 = 100;
+int d2 = 200;
+int d3 = 300;
+int d5 = 500;
+int d10 = 1000;
+int dx = d2;
+
+String input; // Input on Serial Monitor
+char key; // Key that was pressed
+bool continueWalking = false; // Boolean used for continuing walking cycle
+
+void setup() {
+  // Assigning the corresponding port to each servo motor
+  servoFrontL.attach(5);
+  servoFrontR.attach(6);
+  servoBackL.attach(7);
+  servoBackR.attach(8);
+  servoKneeFL.attach(10);
+  servoKneeFR.attach(9);
+  servoKneeBL.attach(11);
+  servoKneeBR.attach(12);
+
+  Serial.begin(9600); // Initialise serial monitor port to be used
+}
+
+void loop() {
+
+  // Main programme functionality: if a key is pressed, start the corresponding action
+  if (Serial.available() > 0) {
+    input = Serial.readStringUntil('\n'); // Set input to be the serial monitor entry until an enter (next line) is found
+    key = input.charAt(0); // Set key to be only the first character of input
+
+    switch (key) {
+      case 'w': // If key is w, start walk cycle
+        walk();
+        continueWalking = true;
+        break;
+      case '1': // If key is 1, use the walking cycle with a delay of 500 ms
+        hillwalk();
+        continueWalking = false;
+        break;                                              
+      case 'q': // If key is q, start SMALL steps
+        steps();
+        continueWalking = false;
+        break;
+      case 'h': // If key is h, start gaps
+        gaps();
+        continueWalking = false;
+        break;
+      case '3': // If key is 3, start LONG steps left first
+        longstepsLEFT();
+        continueWalking = false;
+        break;
+      case '4': // If key is 4, start LONG steps right first
+        longstepsRIGHT();
+        continueWalking = false;
+        break;
+      case '5': // If key is 5, robot climbs left first
+        climbLEFT();
+        continueWalking = false;
+        break;
+      case '6': // If key is 6, robot climbs right first
+        climbRIGHT();
+        continueWalking = false;
+        break;
+      case 't': // If key is t, diagnostics1
+        diagnostics1();
+        continueWalking = false;
+        break;
+      case 'y': // If key is y, diagnostics2
+        diagnostics2();
+        continueWalking = false;
+        break;
+      case 'd': // If key is d, turn right
+        turnRight();
+        continueWalking = false;
+        break;
+      case 'r': // If key is r, reset to initial position
+        reset();
+        continueWalking = false;
+        break;
+      case 'o': // If key is o, reset to low position
+        low();
+        continueWalking = false;
+        break;
+      case 's': // If key is s, stop the robot
+        stop();
+        continueWalking = false;
+        break;
+      case 'p': // If key is p, robot pulls up (like capybara)
+        Pullup();
+        continueWalking = false;
+        break;
+      case 'f': // If key is f, fold the robot's legs to go into wheel mode and slide down hill
+        fold();
+        continueWalking = false;
+        break;
+      default: // If key is another character, stop the robot
+        stop();
+        continueWalking = false;
+        break;
+    }
+  } else if (continueWalking) { // If no new key has been pressed, check whether the robot should keep on walking
+    walk();
+  }
+}
+
+
+//                                                                        DIAGNOSTICS 1
+// Method for running a diagnostic test
+void diagnostics1() {
+  // Set all servo's to 0 degrees
+  servoFrontL.write(180);
+  servoKneeFL.write(180);
+  servoFrontR.write(0);
+  servoKneeFR.write(0);
+
+  servoBackL.write(0);
+  servoKneeBL.write(0);
+  servoBackR.write(180);
+  servoKneeBR.write(180);
+  delay(2000);
+  
+  servoFrontL.write(0);
+  servoKneeFL.write(0);
+  servoFrontR.write(180);
+  servoKneeFR.write(180);
+
+  servoBackL.write(180);
+  servoKneeBL.write(180);
+  servoBackR.write(0);
+  servoKneeBR.write(0);
+}
+
+
+//                                                                          DIAGNOSTICS 2
+void diagnostics2() {
+  // Set all servo's to initial position
+  reset();
+  // All legs tested, hip first, then knee
+    // Test front left leg
+  servoFrontL.write(180-initPosFrontL + 30);
+    delay(500);
+  servoKneeFL.write(180-initPosKneeFL + 30);
+    delay(500);
+
+  // Test front right leg
+  servoFrontR.write(initPosFrontR + 30);
+    delay(500);
+  servoKneeFR.write(initPosKneeFR + 30);
+    delay(500);
+
+  // Test back left leg
+  servoBackL.write(initPosBackL + 30);
+    delay(500);
+  servoKneeBL.write(initPosKneeBL + 30);
+    delay(500);
+  
+  // Test back right leg
+  servoBackR.write(180-initPosBackR + 30);
+    delay(500);
+  servoKneeBR.write(180-initPosKneeBR + 30);
+    delay(500);
+}
+
+//                                                                                  WALK
+// Method for making the robot walk, containing 1 single cycle
+void walk() {
+
+  // Lift the front right leg and knee
+  servoKneeFR.write(initPosKneeFR-40); //75 to 35 degrees
+  servoFrontR.write(initPosFrontR+35); //55 to 90
+  delay(dx);
+
+  // Lower front right knee to touch the ground and Lift the back left leg and knee
+  servoKneeFR.write(initPosKneeFR-10);  // 35 to 75 degrees
+  servoKneeBL.write(initPosKneeBL-40);
+  servoBackL.write(initPosBackL-25);
+  delay(dx);
+
+  // Lower back left knee 
+  servoKneeBL.write(initPosKneeBL+10);
+  // Lift the front left leg and knee
+  servoKneeFL.write(initPosKneeFL+40); //145
+  servoFrontL.write(initPosFrontL-35);
+  delay(dx);
+  
+  // Lower front left knee to touch the ground  
+  servoKneeFL.write(initPosKneeFL+10); //105
+  //Lift the back right leg and knee
+  servoKneeBR.write(initPosKneeBR+80);  //145
+  servoBackR.write(initPosBackR+30); //150
+  delay(dx);
+
+
+  // Lower back right knee
+  servoKneeBR.write(initPosKneeBR-10); //105
+  delay(dx);
+
+//   // Shift body forward
+  reset();
+}
+
+
+//                                                                                  HILL WALK
+// For climbing the hill, 500 ms delay is usefull
+void hillwalk() {
+
+if (Serial.available() > 0) {
+    stop(); // If keyboard input is detected, stop turning
+  } else {
+
+  // Lift the front right leg and knee
+  servoKneeFR.write(initPosKneeFR-40); //75 to 35 degrees
+  servoFrontR.write(initPosFrontR+40); //55 to 90
+  delay(500);
+
+  // Lower front right knee to touch the ground and Lift the back left leg and knee
+  servoKneeFR.write(initPosKneeFR+70);  // 35 to 75 degrees
+  delay(500);
+  servoFrontR.write(initPosFrontR+10); //55 to 90
+  
+  servoKneeBL.write(initPosKneeBL-40);
+  servoBackL.write(initPosBackL-25);
+  delay(500);
+
+  // Lower back left knee 
+  servoKneeBL.write(initPosKneeBL+20);
+
+  // Lift the front left leg and knee
+  servoKneeFL.write(initPosKneeFL+40); //145
+  servoFrontL.write(initPosFrontL-60);
+  delay(500);
+  
+  // Lower front left knee to touch the ground 
+  servoKneeFL.write(initPosKneeFL-70); //105
+  delay(500);
+  servoFrontL.write(initPosFrontL-10); 
+  
+  //Lift the back right leg and knee
+  servoBackR.write(initPosBackR - 20);
+  servoKneeBR.write(initPosKneeBR+40);  //145
+  delay(100);
+  servoBackR.write(initPosBackR +25); //150
+  delay(500);
+
+  // Lower back right knee
+  servoKneeBR.write(initPosKneeBR-20); //105
+  delay(800);
+
+  // Reset position
+  servoFrontL.write(initPosFrontL);
+  delay(100);
+  servoFrontR.write(initPosFrontR);
+  servoBackL.write(initPosBackL);
+  servoBackR.write(initPosBackR);
+  servoKneeFL.write(initPosKneeFL);
+  servoKneeFR.write(initPosKneeFR);
+  delay(500);
+
+  reset();
+  delay(500);
+
+  hillwalk();
+  }
+
+}
+
+
+void longstepsRIGHT() {
+
+  servoFrontL.write(LongPosFrontL);
+  servoFrontR.write(LongPosFrontR);
+  servoBackL.write(LongPosBackL+30);
+  servoBackR.write(LongPosBackR-30);
+  servoKneeFL.write(LongPosKneeFL);
+  servoKneeFR.write(LongPosKneeFR);
+  servoKneeBL.write(LongPosKneeBL);
+  servoKneeBR.write(LongPosKneeBR);
+  delay(1000);
+
+  // Straighten the front right leg and knee
+  servoFrontR.write(LongPosFrontR+20);
+  delay(500);
+  servoKneeFR.write(LongPosKneeFR+140);
+  delay(500);
+
+  // Put down front right leg to touch the ground
+  servoFrontR.write(LongPosFrontR-50);  
+  
+  // Straighten the front left leg and knee
+  servoFrontL.write(LongPosFrontL-20);
+  delay(500);
+  servoKneeFL.write(LongPosKneeFL-140);
+  delay(500);
+  // Straighten front left knee to touch the ground and Move the back right leg and knee
+  servoFrontL.write(LongPosFrontL+50);
+  delay(1000);
+
+
+  // Retract FRONT LEFT and FRONT RIGHT leg
+  servoFrontL.write(LongPosFrontL);
+  servoFrontR.write(LongPosFrontR);
+  servoKneeFL.write(LongPosKneeFL);
+  servoKneeFR.write(LongPosKneeFR);  
+
+
+  // Extend BACK LEFT and BACK RIGHT leg
+  servoKneeBL.write(LongPosKneeBL+140);
+  servoBackL.write(LongPosBackL-50);  
+
+  servoBackR.write(LongPosBackR+50);
+  servoKneeBR.write(LongPosKneeBR-140);
+
+}
+
+
+void longstepsLEFT() {
+
+  servoFrontL.write(LongPosFrontL);
+  servoFrontR.write(LongPosFrontR);
+  servoBackL.write(LongPosBackL+30);
+  servoBackR.write(LongPosBackR-30);
+  servoKneeFL.write(LongPosKneeFL);
+  servoKneeFR.write(LongPosKneeFR);
+  servoKneeBL.write(LongPosKneeBL);
+  servoKneeBR.write(LongPosKneeBR);
+  delay(1000);
+
+  // Straighten the front left leg and knee
+  servoFrontL.write(LongPosFrontL-20);
+  delay(500);
+  servoKneeFL.write(LongPosKneeFL-140);
+  delay(500);
+
+  // Straighten front left knee to touch the ground and Move the back right leg and knee
+  servoFrontL.write(LongPosFrontL+50);
+
+  // Straighten the front right leg and knee
+  servoFrontR.write(LongPosFrontR+20);
+  delay(500);
+  servoKneeFR.write(LongPosKneeFR+140);
+  delay(500);
+
+  // Put down front right leg to touch the ground
+  servoFrontR.write(LongPosFrontR-50);  
+  delay(1000);
+
+// Retract FRONT LEFT and FRONT RIGHT leg
+  servoFrontL.write(LongPosFrontL);
+  servoFrontR.write(LongPosFrontR);
+  servoKneeFL.write(LongPosKneeFL);
+  servoKneeFR.write(LongPosKneeFR);  
+
+// Extend BACK LEFT and BACK RIGHT leg
+servoKneeBL.write(LongPosKneeBL+140);
+servoBackL.write(LongPosBackL-50);  
+
+servoBackR.write(LongPosBackR+50);
+servoKneeBR.write(LongPosKneeBR-140);
+
+}
+
+
+//                                                                                  SMALL STEPS
+// Method for making the robot walk, containing 1 single cycle
+void steps() {
+
+  // Lift the front right leg and knee
+  servoKneeFR.write(initPosKneeFR-15);
+  servoFrontR.write(initPosFrontR+10);
+  delay(dx);
+
+  // Straighten front right knee to touch the ground 
+  servoKneeFR.write(initPosKneeFR);  
+  //Lift the back left leg and knee
+  servoKneeBL.write(initPosKneeBL-10);
+  servoBackL.write(initPosBackL-10);
+  delay(dx);
+  
+  // Straighten back left knee
+  servoKneeBL.write(initPosKneeBL);
+  delay(dx);
+  
+  // Lift the front left leg and knee
+  servoKneeFL.write(initPosKneeFL+15);
+  servoFrontL.write(initPosFrontL-10);
+  delay(dx);
+  
+  // Straighten front left knee to touch the ground 
+  servoKneeFL.write(initPosKneeFL);
+  //Lift the back right leg and knee
+  servoKneeBR.write(initPosKneeBR+10);
+  servoBackR.write(initPosBackR+10);
+  delay(dx);
+
+
+  // Straighten back right knee
+ servoKneeBR.write(initPosKneeBR);
+  delay(dx);
+
+  // Shift body forward
+  reset();
+}
+
+
+//                                                                                  GAPS
+// Method for making the robot walk, containing 1 single cycle
+void gaps() {
+  if (Serial.available() > 0) {
+    stop(); // If keyboard input is detected, stop turning
+  } else {
+    servoFrontL.write(LongPosFrontL);
+    servoFrontR.write(LongPosFrontR);
+    servoBackL.write(LongPosBackL+30);
+    servoBackR.write(LongPosBackR-30);
+    servoKneeFL.write(LongPosKneeFL);
+    servoKneeFR.write(LongPosKneeFR);
+    servoKneeBL.write(LongPosKneeBL);
+    servoKneeBR.write(LongPosKneeBR);
+    delay(1000);
+
+    // Straighten the front legs and knees
+    servoFrontL.write(LongPosFrontL-20);
+    servoFrontR.write(LongPosFrontR+20);
+    delay(500);
+    servoKneeFL.write(LongPosKneeFL-140);
+    servoKneeFR.write(LongPosKneeFR+140);
+    delay(500);
+
+    // Lower front legs to touch the ground 
+    servoFrontL.write(LongPosFrontL+70);
+    servoFrontR.write(LongPosFrontR-70);  
+    delay(1000);
+
+    // Place back feet on the ground
+    servoBackL.write(180);  
+    servoBackR.write(0);
+    servoKneeBL.write(LongPosKneeBL+30);
+    servoKneeBR.write(LongPosKneeBR-30);
+    delay(500);
+    servoBackL.write(120);
+    servoBackR.write(35);
+    delay(500);
+
+    // Extend BACK LEFT and BACK RIGHT leg
+    servoKneeBL.write(LongPosKneeBL+140);
+    servoBackL.write(LongPosBackL-40);  
+
+    servoBackR.write(LongPosBackR+40);
+    servoKneeBR.write(LongPosKneeBR-140);
+
+    // Retract FRONT LEFT and FRONT RIGHT leg
+    servoFrontL.write(LongPosFrontL+120);
+    servoFrontR.write(LongPosFrontR-120);
+    delay(300);
+    servoKneeFL.write(LongPosKneeFL);
+    servoKneeFR.write(LongPosKneeFR);  
+    delay(300);
+    servoFrontL.write(LongPosFrontL);
+    servoFrontR.write(LongPosFrontR);
+  	delay(500);
+
+    // Reset position  
+    servoFrontL.write(LongPosFrontL);
+    servoFrontR.write(LongPosFrontR);
+    servoKneeFL.write(LongPosKneeFL);
+    servoKneeFR.write(LongPosKneeFR);
+    delay(500);
+
+    gaps();
+  }
+}
+
+
+//                                                                              TURN RIGHT
+// Makes the robot turn 90 degrees right
+void turnRight() {
+  if (Serial.available() > 0) {
+    stop(); // If keyboard input is detected, stop turning
+  } else {
+
+// Turn on 3 legs
+  servoFrontL.write(initPosFrontL);
+  servoFrontR.write(initPosFrontR-55);
+  servoBackL.write(initPosBackL);
+  servoBackR.write(initPosBackR+55);
+  servoKneeFL.write(initPosKneeFL);
+  servoKneeFR.write(initPosKneeFR);
+  servoKneeBL.write(initPosKneeBL);
+  servoKneeBR.write(initPosKneeBR-20);
+  delay(300);
+
+  // Lift back left leg
+  servoKneeBL.write(initPosKneeBL-50);
+  servoBackL.write(initPosBackL-35);
+  delay(300);
+
+  // Lower back left knee 
+  servoKneeBL.write(initPosKneeBL+10);
+  delay(200);
+
+  // Lift the front left leg and knee
+  servoKneeFL.write(initPosKneeFL-20); //145
+  servoFrontL.write(initPosFrontL-20);
+  delay(200);
+
+  //Rotate whole robot clockwise  
+    servoFrontL.write(180);
+    servoFrontR.write(initPosFrontR-55);
+    servoBackL.write(initPosBackL);
+    servoBackR.write(initPosBackR+55);
+    servoKneeFL.write(initPosKneeFL+30);
+    servoKneeFR.write(initPosKneeFR);
+    servoKneeBL.write(initPosKneeBL);
+    servoKneeBR.write(initPosKneeBR-20);
+    delay(200);
+      
+  reset();
+  }
+}
+
+
+//                                                                                  STOP
+// Stops movement of the robot
+void stop() {
+  // do nothing
+  delay(500);
+}
+
+
+//                                                                                  CLIMB LEFT
+void climbLEFT(){
+
+// Adjust back legs
+servoBackL.write(LongPosBackL-50+30);  
+    delay(500);
+servoKneeBL.write(LongPosKneeBL+140-80);
+    delay(500);
+servoBackR.write(LongPosBackR+50-40);
+    delay(500);
+servoKneeBR.write(LongPosKneeBR-140+80);
+
+// Push forward front legs
+// Straighten the front left leg and knee
+  servoFrontL.write(LongPosFrontL-20);
+  delay(500);
+  servoKneeFL.write(LongPosKneeFL-140);
+  delay(500);
+  // Straighten front left knee to touch the ground and Move the back right leg and knee
+  servoFrontL.write(LongPosFrontL+80);
+  delay(500);
+
+  // Straighten the front right leg and knee
+  servoFrontR.write(LongPosFrontR+20);
+  delay(500);
+  servoKneeFR.write(LongPosKneeFR+140+10);
+  delay(500);
+
+  // Put down front right leg to touch the ground
+  servoFrontR.write(LongPosFrontR-80);  
+  delay(1000);
+  // Extend BACK LEFT and BACK RIGHT leg
+  servoBackL.write(LongPosBackL-70); 
+  servoBackR.write(LongPosBackR+70-10);
+  delay(500);
+  servoKneeBL.write(LongPosKneeBL+140-0);
+  servoKneeBR.write(LongPosKneeBR-140);
+}
+
+
+//                                                                            CLIMB RIGHT
+void climbRIGHT(){
+
+  // Adjust back legs
+  servoBackR.write(LongPosBackR+50-40);
+  delay(500);
+  servoKneeBR.write(LongPosKneeBR-140+80);
+  delay(500);
+  servoBackL.write(LongPosBackL-50+30);  
+  delay(500);
+  servoKneeBL.write(LongPosKneeBL+140-80);
+
+  // Push forward front legs
+  // Straighten the front right leg and knee
+  servoFrontR.write(LongPosFrontR+20);
+  delay(500);
+  servoKneeFR.write(LongPosKneeFR+140+10);
+  delay(500);
+  // Put down front right leg to touch the ground
+  servoFrontR.write(LongPosFrontR-80);  
+  delay(500);
+
+  // Straighten the front left leg and knee
+  servoFrontL.write(LongPosFrontL-20);
+  delay(500);
+  servoKneeFL.write(LongPosKneeFL-140);
+  delay(500);
+
+  // Straighten front left knee to touch the ground and Move the back right leg and knee
+  servoFrontL.write(LongPosFrontL+80);
+  delay(1000);
+
+  // Extend BACK LEFT and BACK RIGHT leg
+  servoBackL.write(LongPosBackL-70); 
+  servoBackR.write(LongPosBackR+70-10);
+  delay(500);
+  servoKneeBL.write(LongPosKneeBL+140-0);
+  servoKneeBR.write(LongPosKneeBR-140);
+}
+
+
+//                                                                                 PULLUP
+// Final pullup, up the hill
+void Pullup() {
+
+servoKneeFL.write(180);
+servoKneeFR.write(0);
+delay(500);
+servoBackL.write(LongPosFrontR-50);  
+servoBackR.write(LongPosFrontL+50);
+delay(500);
+servoKneeBL.write(LongPosKneeFR+140-70);
+servoKneeBR.write(LongPosKneeFL-140+70);
+}
+
+
+//                                                                                   RESET
+// Resets the robot back to initial position
+void reset() {
+  // Set start state of the walk cycle
+  servoFrontL.write(initPosFrontL);
+  servoFrontR.write(initPosFrontR);
+  servoBackL.write(initPosBackL);
+  servoBackR.write(initPosBackR);
+  servoKneeFL.write(initPosKneeFL);
+  servoKneeFR.write(initPosKneeFR);
+  servoKneeBL.write(initPosKneeBL);
+  servoKneeBR.write(initPosKneeBR);
+  delay(500);
+}
+
+
+//                                                                              LOW RESET POSITION
+// Resets the robot back to initial position
+void low() {
+  // Set start state of the walk cycle
+  servoFrontL.write(LongPosFrontL);
+  servoFrontR.write(LongPosFrontR);
+  servoBackL.write(LongPosBackL+30);
+  servoBackR.write(LongPosBackR-30);
+  servoKneeFL.write(LongPosKneeFL);
+  servoKneeFR.write(LongPosKneeFR);
+  servoKneeBL.write(LongPosKneeBL);
+  servoKneeBR.write(LongPosKneeBR);
+delay(1000);
+  servoBackL.write(LongPosBackL);
+  servoBackR.write(LongPosBackR);
+delay(1000);
+}
+
+
+//                                                                                  FOLD
+// Folds legs and prepares to slide down hill
+void fold() {
+
+  servoFrontL.write(initPosFrontL+45);
+  servoFrontR.write(initPosFrontR-45);
+  servoBackL.write(initPosBackL-45);
+  servoBackR.write(initPosBackR+45);
+  servoKneeFL.write(180);
+  servoKneeFR.write(0);
+  servoKneeBL.write(0);
+  servoKneeBR.write(180);
+  delay(1000);
+}
